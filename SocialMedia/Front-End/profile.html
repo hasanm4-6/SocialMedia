@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css.css">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="landing.html">Social Media</a>
+            <button id="logoutButton" class="btn btn-danger" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h2>User Profile</h2>
+        <div id="profileInfo" class="card p-4 shadow">
+            <p><strong>Name:</strong> <span id="profileNameSpan"></span></p>
+            <p><strong>Email:</strong> <span id="profileEmailSpan"></span></p>
+            <button type="button" id="changePasswordBtn" class="btn btn-warning">Change Password</button>
+        </div>
+    </div>
+
+    <form id="ChangePasswordForm" class="card p-4 mt-3 shadow">
+        <h4>Change Password</h4>
+        <input type="password" id="oldPassword" class="form-control mb-3" placeholder="Enter Old Password" required>
+        <input type="password" id="newPassword" class="form-control mb-3" placeholder="Enter New Password" required>
+        <input type="password" id="newPasswordAgain" class="form-control mb-3" placeholder="Enter New Password Again" required>
+        <button type="button" id="submitPasswordChange" class="btn btn-success w-100">Submit</button>
+    </form>
+
+    <div class="container mt-4" id="allPosts">
+        <h3 id="postsHeading">Your Posts</h3>
+        <div id="postsContainer" class="row gy-3"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        let token = localStorage.getItem("Token")
+        const socket = io("http://localhost:4000")
+
+        function logout() {
+            localStorage.removeItem("Token")
+            window.location.href = "Login.html"
+        }
+
+        function fetchProfile() {
+            const params = new URLSearchParams(window.location.search)
+            const targetEmail = params.get('email')
+
+            if (!targetEmail) {
+                alert("No email found in URL")
+                return
+            }
+
+            fetch("/api/users/validateToken", {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${token}` }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert("Invalid token: " + data.error)
+                    logout()
+                } 
+                else {
+                    const loggedInEmail = data.email
+                    window.loggedInUserId = data.id
+                    window.loggedInUserName = data.name
+                    window.loggedInUserEmail = loggedInEmail
+
+                    if (targetEmail !== loggedInEmail) {
+                        document.getElementById("logoutButton").style.display = "none"
+                        document.getElementById("changePasswordBtn").style.display = "none"
+                        document.getElementById("ChangePasswordForm").style.display = "none"
+                        document.getElementById("postsHeading").innerText = "All Posts"
+
+                        fetch(`/api/users/profile/${encodeURIComponent(targetEmail)}`, {
+                            headers: { 
+                                Authorization: `Bearer ${token}`,
+                                'Content-Type': 'application/json' 
+                            }
+                        })
+                        .then(res => res.json())
+                        .then(user => {
+                            document.getElementById("profileNameSpan").innerText = user.name
+                            document.getElementById("profileEmailSpan").innerText = user.email
+                            window.profileUserID = user._id
+                            window.profileUserName = user.name
+                            window.profileUserEmail = user.email
+
+                            fetchMyPosts()
+                        })
+                        .catch(error => {
+                            alert("Error fetching user profile: " + error.message)
+                        })
+                    } 
+                    else {
+                        document.getElementById("profileNameSpan").innerText = data.name
+                        document.getElementById("profileEmailSpan").innerText = data.email
+                        window.profileUserID = data.id
+                        window.profileUserName = data.name
+                        window.profileUserEmail = data.email
+
+                        fetchMyPosts()
+                    }
+                }
+            })
+            .catch(error => {
+                alert("Error: " + error.message)
+                logout()
+            })
+        }
+
+        fetchProfile()
+
+        function fetchMyPosts() {
+            fetch("/api/posts", {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            .then(res => res.json())
+            .then(posts => {
+                const myPosts = posts.filter(post => post.user._id === window.profileUserID)
+                const container = document.getElementById("postsContainer")
+                container.innerHTML = ""
+                myPosts.forEach(post => {
+                    container.innerHTML += generatePostHTML(post)
+                })
+            })
+            .catch(error => {
+                alert("Error fetching posts:" + error)
+            })
+        }
+
+        let form = document.getElementById("ChangePasswordForm")
+        form.style.display =  "none" 
+
+        document.getElementById("changePasswordBtn").addEventListener("click", function () {
+            form.style.display = form.style.display === "none" ? "block" : "none"
+
+            if(form.style.display === "block") {
+                document.getElementById("allPosts").style.display = "none"
+            }
+            else{
+                document.getElementById("allPosts").style.display = "block"
+            }
+        })
+
+        document.getElementById("submitPasswordChange").addEventListener("click", function () {
+
+            let oldPassword = document.getElementById("oldPassword").value
+            let newPassword = document.getElementById("newPassword").value
+            let newPasswordAgain = document.getElementById("newPasswordAgain").value
+
+            if (newPassword !== newPasswordAgain) {
+                alert("New passwords do not match!")
+                return
+            }
+
+            fetch("/api/users/changePassword", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`  
+                },
+                credentials: "include",
+                body: JSON.stringify({  email: window.loggedInUserEmail, oldPassword, newPassword })
+
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message)
+                form.reset()
+                form.style.display = "none"
+                fetchProfile()
+            })
+            .catch(error => {
+                alert("Error updating password: " + error.message)
+            })
+        })
+
+        function toggleLike(postId) {
+            fetch(`/api/posts/toggle-like/${postId}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ userId: window.loggedInUserId }),
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    fetchMyPosts()
+                }
+                else {
+                    alert("Error toggling like: " + data.message)
+                }
+            })  
+            .catch(err => {
+                alert("Error: " + err.message)
+            })
+        }
+
+        
+        function generatePostHTML(post) {
+            const liked = post.likes.includes(window.loggedInUserId)
+            const heart = liked ? "❤️" : "🤍"
+            return `
+                <div id="post-${post._id}" class="post my-4 p-3 border shadow-sm" data-liked-by-current-user="${liked}">
+                    <div class="post-content">
+                        <h5>
+                            <a href="profile.html?email=${post.user.email}" id="profileLink" title="link to profile">${post.user.name}</a>
+                        </h5>
+                            
+                        <img src="${post.imageUrl}" alt="Post image" class="img-fluid mb-2">
+                            
+                        <p>
+                            ${post.caption}
+                        </p>
+                                
+                        <button onclick="toggleLike('${post._id}')">
+                            ${heart} ${post.likesCount} Likes
+                        </button>
+                                    
+                        <button onclick="toggleComments('${post._id}')">
+                            💬 ${post.commentCount} Comments
+                        </button>
+                    </div>
+                                        
+                    <div class="comments" id="comments-section-${post._id}" style="display: none">
+                        ${renderComments(post)}
+                        <div class="comment-input mt-2">
+                            <input type="text" id="comment-input-${post._id}" class="form-control" placeholder="Write a comment...">
+                                                
+                            <button class="btn btn-primary mt-1" onclick="addCommentOrReply('${post._id}')">
+                                Post Comment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `
+        }
+                                            
+        function renderComments(post) {
+            const commentMap = {}
+            post.comments.forEach(comment => {
+                commentMap[comment._id] = comment
+            })
+
+            return post.comments.map(comment => {
+                const repliesByParent = {}
+
+                comment.replies.forEach(reply => {
+                    const parentId = reply.parentReply || "root"
+                    if (!repliesByParent[parentId]) repliesByParent[parentId] = []
+                    repliesByParent[parentId].push(reply)
+                })
+
+                const renderReplies = (parentId) => {
+                    const replies = repliesByParent[parentId] || []
+                    return replies.map(reply => {
+                        const replyLiked = reply.likes.includes(window.loggedInUserId)
+                        const replyHeart = replyLiked ? "❤️" : "🤍"
+
+                        return `
+                            <div class="border-start ps-3 ms-3 mt-3">
+                                <div class="d-flex align-items-baseline flex-wrap gap-2">
+                                    <strong class="me-1">
+                                        <a href="profile.html?email=${reply.user.email}" id="profileLink" title="link to profile">${reply.userName}</a>
+                                        :
+                                    </strong>
+
+                                    <span class="text-break">
+                                        ${reply.text}
+                                    </span>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <small class="text-muted">
+                                        ${new Date(reply.createdAt).toLocaleString()}
+                                    </small>
+
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button id="reply-like-${reply._id}" class="btn btn-sm like-btn" onclick="toggleCommentLike('${reply._id}', 'reply')">
+                                            ${replyHeart} ${reply.likesCount} Likes
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleReplyInput('${post._id}', '${comment._id}', '${reply._id}')">
+                                            Reply
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="reply-input-${comment._id}-${reply._id}" class="mt-2" style="display: none">
+                                    <input type="text" id="reply-text-${comment._id}-${reply._id}" class="form-control mb-1" placeholder="Write a reply...">
+
+                                    <button class="btn btn-sm btn-primary" onclick="addCommentOrReply('${post._id}', '${comment._id}', '${reply._id}')">
+                                        Post Reply
+                                    </button>
+                                </div>
+
+                                ${renderReplies(reply._id)}
+                            </div>
+                        `
+                    }).join('')
+                }
+
+                const commentLiked = comment.likes.includes(window.loggedInUserId)
+                const commentHeart = commentLiked ? "❤️" : "🤍"
+
+                return `
+                    <div class="border rounded p-3 my-2">
+                        <div class="d-flex align-items-baseline flex-wrap gap-2">
+                            <strong class="me-1">
+                                <a href="profile.html?email=${comment.user.email}" id="profileLink" title="link to profile">${comment.userName}</a>
+                                :
+                            </strong>
+
+                            <span class="text-break">
+                                ${comment.text}
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <small class="text-muted">
+                                ${new Date(comment.createdAt).toLocaleString()}
+                            </small>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <button id="comment-like-${comment._id}" class="btn btn-sm like-btn" onclick="toggleCommentLike('${comment._id}', 'comment')">
+                                    ${commentHeart} ${comment.likesCount} Likes
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-secondary" onclick="toggleReplyInput('${post._id}', '${comment._id}')">
+                                    Reply
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="reply-input-${comment._id}" class="mt-2" style="display: none">
+                            <input type="text" id="reply-text-${comment._id}" class="form-control mb-1" placeholder="Write a reply...">
+                            
+                            <button class="btn btn-sm btn-primary" onclick="addCommentOrReply('${post._id}', '${comment._id}')">
+                                Post Reply
+                            </button>
+                        </div>
+
+                        ${renderReplies("root")}
+                    </div>
+                `
+            }).join('') || "<p>No comments yet.</p>"
+        }
+                                                                                                       
+        function toggleComments(postId) {
+            const section = document.getElementById(`comments-section-${postId}`)
+            section.style.display = section.style.display === "none" ? "block" : "none"
+        }
+
+        function addCommentOrReply(postId, parentCommentId = null, parentReplyId = null) {
+            const inputId = parentReplyId ? `reply-text-${parentCommentId}-${parentReplyId}` : parentCommentId ? `reply-text-${parentCommentId}` : `comment-input-${postId}`
+            const text = document.getElementById(inputId).value.trim()
+
+            if (!text) return alert("Cannot send empty comment/reply")
+
+            fetch("/api/posts/comment/reply", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    postId,
+                    parentCommentId,
+                    parentReplyId,
+                    userId: window.loggedInUserId,
+                    userName: window.loggedInUserName,
+                    text,
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    document.getElementById(inputId).value = ""
+                    fetchMyPosts()
+                }
+                else{
+                    alert("Error adding comment or reply: " + data.message) 
+                }
+            })
+            .catch(error => {
+                alert("Error adding comment/reply: " + error.message)
+            })
+        }
+
+        function toggleReplyInput(postId, parentCommentId, parentReplyId = null) {
+            const inputId = parentReplyId ? `reply-input-${parentCommentId}-${parentReplyId}` : `reply-input-${parentCommentId}`
+            const input = document.getElementById(inputId)
+            if (input) input.style.display = input.style.display === "none" ? "block" : "none"
+        }
+
+        function toggleCommentLike(id, type) {
+            fetch("/api/posts/comment/like", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                 },
+                body: JSON.stringify({ id, type, userId: window.loggedInUserId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    fetchAndRenderPosts()
+                }
+                else {
+                    alert("Error toggling like: " + data.message)
+                }
+            })
+            .catch(err => {
+                console.error("Error toggling comment like:", err.message)
+            })
+        }
+
+        socket.on("postLiked", (data) => {
+            const postEl = document.getElementById(`post-${data.postId}`)
+            if (!postEl) return
+            
+            const likeButton = postEl.querySelector("button")
+            if (!likeButton) return
+            
+            const likedByCurrentUser = postEl.dataset.likedByCurrentUser === "true"
+            const heart = likedByCurrentUser ? "❤️" : "🤍"
+            likeButton.innerHTML = `${heart} ${data.likesCount} Likes`
+        })
+        
+        
+        socket.on("newComment", (data) => {
+            const postElement = document.getElementById(`post-${data.postId}`)
+            if (!postElement) return
+            
+            fetchMyPosts() 
+        })
+        
+        socket.on("newReply", (data) => {
+            const postElement = document.getElementById(`post-${data.postId}`)
+            if (!postElement) return
+            
+            fetchMyPosts() 
+        })
+        
+        socket.on("commentLikeUpdate", ({ type, id, likesCount, likes }) => {
+            const targetId = type === "comment" ? `comment-like-${id}` : `reply-like-${id}`
+            const btn = document.getElementById(targetId)
+
+            if (btn) {
+                const hasLiked = likes.includes(window.loggedInUserId) 
+                const heart = hasLiked ? "❤️" : "🤍"
+                btn.innerHTML = `${heart} ${likesCount} Likes`
+            }
+        })
+
+    </script>
+
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,147 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 0;
+}
+
+.card {
+    border-radius: 15px;
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+button {
+    transition: transform 0.3s ease-in-out, background-color 0.3s ease;
+    background-color: #6c757d; 
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    transform: scale(1.05);
+    background-color: #5a6268; 
+}
+
+button:focus {
+    outline: none;
+}
+
+table {
+    border-radius: 10px;
+    overflow: hidden;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table th, table td {
+    padding: 12px;
+    text-align: center;
+}
+
+#postForm {
+    display: none;
+}
+
+#postsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+#postImg {
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+    object-fit: cover;
+    border-radius: 10px;
+    box-shadow: 2px 2px 20px rgba(0, 0, 0, 0.1);
+}
+
+.post {
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    background: #ffffff;
+    padding: 20px;
+    width: 100%; 
+    max-width: 600px; 
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.post:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-5px);
+}
+
+.post-img {
+    max-height: 300px;
+    object-fit: cover;
+    width: 100%;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+
+.post-img:hover {
+    transform: scale(1.05);
+}
+
+strong a, H5 a {
+    text-decoration: none;
+    color: #007bff;
+    transition: color 0.3s ease;
+}
+
+button.cursor-pointer {
+    cursor: pointer;
+}
+
+.comment-box {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f1f1f1;
+    border-radius: 8px;
+}
+
+.nested-reply {
+    margin-left: 30px;
+    padding-left: 20px;
+    border-left: 2px solid #ddd;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    margin-top: 5px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    transition: border 0.3s ease;
+}
+
+input[type="text"]:focus {
+    border-color: #007bff;
+}
+
+@media (max-width: 768px) {
+    .post {
+        width: 100%;
+        margin: 0 10px;
+    }
+
+    #postsContainer {
+        justify-content: flex-start;
+    }
+
+    #postImg {
+        max-width: 100%;
+    }
+}
