@@ -8,8 +8,8 @@ const userSecretKEY = "SeCrEtKeY"
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { 
-        user: "hasanmunir406@gmail.com", 
-        pass: "vnfp nhao lrqr zmma"    
+        user: "GMAILAccount", 
+        pass: "PASSWORD"    
     },
     logger: true,
     debug: true
@@ -106,7 +106,7 @@ exports.sendOTP = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000)
 
         const mailOptions = {
-            from: "hasanmunir406@gmail.com",  
+            from: "GMAIL",  
             to: email,  
             subject: "Password Reset OTP", 
             text: `Your OTP for password reset is: ${otp}`  
